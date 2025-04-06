@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta name="theme-color" content="#2d2d2d" />
+  <link rel="manifest" href="manifest.json" />
+  <link rel="icon" href="icons/icon-192.png" />
+  <title>ICF & AI Reflection Program</title>
+  <style>
+    body {
+      background-color: #1e1e1e;
+      color: #f0f0f0;
+      font-family: 'Segoe UI', sans-serif;
+      margin: 0;
+      padding: 1rem;
+    }
+    .container {
+      max-width: 700px;
+      margin: auto;
+      padding: 1rem;
+      background: #2d2d2d;
+      border-radius: 12px;
+    }
+    textarea {
+      width: 100%;
+      height: 100px;
+      margin-top: 10px;
+      padding: 0.5rem;
+      font-size: 1rem;
+      border-radius: 8px;
+      border: none;
+    }
+    button {
+      background-color: #4caf50;
+      color: white;
+      border: none;
+      padding: 0.6rem 1.2rem;
+      margin: 5px 4px;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+    .question {
+      background: #444;
+      padding: 1rem;
+      border-radius: 8px;
+      margin-top: 10px;
+    }
+    input[type="file"] {
+      margin-top: 10px;
+    }
+    #memoHistory {
+      background: #333;
+      padding: 0.5rem;
+      border-radius: 6px;
+      margin-top: 1rem;
+      max-height: 200px;
+      overflow-y: auto;
+      font-size: 0.9rem;
+    }
+    .progress {
+      margin-top: 10px;
+      font-size: 0.9rem;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h2>ICF & AI Reflection Program</h2>
+    <p>Upload a .txt file with questions or use default. Write reflections, track them, and download later.</p>
+
+    <div>
+      <input type="file" id="fileInput" accept=".txt" />
+      <button onclick="loadFile()">Upload</button>
+      <button onclick="toggleMode()">Toggle Mode</button>
+    </div>
+
+    <div class="question" id="questionBox">Please upload or start to get a question.</div>
+
+    <label for="memoInput">Your Memo Reflection:</label>
+    <textarea id="memoInput" placeholder="Write your reflection here..."></textarea>
+
+    <div>
+      <button onclick="saveMemo()">Save Memo</button>
+      <button onclick="downloadMemo()">Download Memo</button>
+      <button onclick="downloadAllHistory()">Download All History</button>
+      <button onclick="clearHistory()">Clear History</button>
+      <button onclick="nextQuestion()">Next Question</button>
+    </div>
+
+    <div class="progress" id="progressDisplay">Progress: 0 / 0</div>
+
+    <div id="memoHistory"><strong>Memo History:</strong><br/></div>
+  </div>
+
+<script>
+let questions = [];
+let currentIndex = 0;
+let mode = 'sequential';
+let memos = JSON.parse(localStorage.getItem("memoList") || "[]");
+
+window.onload = () => {
+  renderHistory();
+  nextQuestion();
+};
+
+function loadFile() {
+  const file = document.getElementById('fileInput').files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    questions = e.target.result.split(/\n+/).filter(Boolean);
+    currentIndex = 0;
+    nextQuestion();
+  };
+  reader.readAsText(file);
+}
+
+function toggleMode() {
+  mode = (mode === 'sequential') ? 'random' : 'sequential';
+  alert("Mode changed to: " + mode);
+}
+
+function nextQuestion() {
+  if (questions.length === 0) {
+    document.getElementById('questionBox').innerText = "No questions available. Upload a text file.";
+    return;
+  }
+  if (mode === 'sequential') {
+    currentIndex = (currentIndex + 1) % questions.length;
+  } else {
+    currentIndex = Math.floor(Math.random() * questions.length);
+  }
+  document.getElementById('questionBox').innerText = questions[currentIndex];
+  updateProgress();
+}
+
+function saveMemo() {
+  const text = document.getElementById('memoInput').value.trim();
+  if (!text) return;
+  const question = questions[currentIndex] || "N/A";
+  const entry = { question, text, time: new Date().toLocaleString() };
+  memos.push(entry);
+  localStorage.setItem("memoList", JSON.stringify(memos));
+  document.getElementById('memoInput').value = "";
+  renderHistory();
+  nextQuestion();
+}
+
+function downloadMemo() {
+  const last = memos[memos.length - 1];
+  if (!last) return alert("No memo found.");
+  const blob = new Blob([formatEntry(last)], { type: "text/plain" });
+  download(blob, "last_memo.txt");
+}
+
+function downloadAllHistory() {
+  const content = memos.map(formatEntry).join("\n---\n");
+  const blob = new Blob([content], { type: "text/plain" });
+  download(blob, "memo_history.txt");
+}
+
+function download(blob, filename) {
+  const link = document.createElement("a");
+  link.href = URL.createObjectURL(blob);
+  link.download = filename;
+  link.click();
+}
+
+function clearHistory() {
+  localStorage.removeItem("memoList");
+  memos = [];
+  renderHistory();
+  updateProgress();
+}
+
+function renderHistory() {
+  const container = document.getElementById('memoHistory');
+  container.innerHTML = "<strong>Memo History:</strong><br/>";
+  memos.forEach((m, i) => {
+    container.innerHTML += `<div><b>${i+1}. ${m.question}</b><br/>📝 ${m.text}<br/>🕒 ${m.time}</div><hr/>`;
+  });
+}
+
+function updateProgress() {
+  document.getElementById("progressDisplay").innerText = 
+    `Progress: ${memos.length} / ${questions.length}`;
+}
+
+function formatEntry(entry) {
+  return `Q: ${entry.question}\nA: ${entry.text}\n⏰ ${entry.time}`;
+}
+</script>
+</body>
+</html>
